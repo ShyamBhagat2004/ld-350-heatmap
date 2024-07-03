@@ -71,4 +71,4 @@ if __name__ == '__main__':
     mqtt_client.on_message = on_message
     mqtt_client.connect("broker.mqtt.cool", 1883, 60)
     mqtt_client.loop_start()
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+    socketio.run(app, debug=True, host='0.0.0.0', port=5001)
