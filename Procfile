@@ -1,2 +1,2 @@
-web: python a.py
+web: python b.py
 
