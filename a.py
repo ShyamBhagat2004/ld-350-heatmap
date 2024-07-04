@@ -1,4 +1,3 @@
-import os
 import asyncio
 import websockets
 import json
@@ -80,11 +79,8 @@ mqtt_client.on_message = on_message
 mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
 mqtt_client.loop_start()
 
-# Get the port from the environment variable
-PORT = int(os.environ.get("PORT", 6789))
-
 # Start the WebSocket server
-start_server = websockets.serve(connection_handler, "0.0.0.0", PORT)
+start_server = websockets.serve(connection_handler, "localhost", 6789)
 
 # Run the WebSocket server
 loop = asyncio.get_event_loop()
