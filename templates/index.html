@@ -9,10 +9,16 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- Leaflet Heatmap JS -->
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 
     <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+        }
         #map {
-            height: 600px;  /* Set a height for the map */
+            height: 100%;  /* Make the map fill the screen */
             width: 100%;
         }
     </style>
@@ -21,13 +27,16 @@
     <div id="map"></div>
 
     <script>
-        // Initialize the map
-        var map = L.map('map').setView([20, 0], 2);  // Center the map on the world view
+        // Initialize the map centered on Athens, Greece with a suitable zoom level
+        var map = L.map('map').setView([37.9838, 23.7275], 6);  // Centered on Athens with a zoom level of 6
 
         // Add a tile layer
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
+
+        // Initialize the heatmap layer with increased intensity and radius
+        var heat = L.heatLayer([], {radius: 35, maxZoom: 12, maxIntensity: 1.5, blur: 20, gradient: {0.4: 'blue', 0.65: 'lime', 1: 'red'}}).addTo(map);
 
         // Initialize WebSocket
         var socket = new WebSocket('ws://localhost:6789');
@@ -41,14 +50,7 @@
             console.log('New strike data received:', data);  // Debug print
             var lat = data.lat;
             var lon = data.lon;
-            L.circleMarker([lat, lon], {
-                radius: 10,  // Make the markers larger
-                color: 'red',
-                fillColor: '#f03',
-                fillOpacity: 0.5
-            }).addTo(map)
-                .bindPopup('Lightning Strike')
-                .openPopup();
+            heat.addLatLng([lat, lon]);  // Add data to the heatmap
         };
 
         socket.onclose = function() {
