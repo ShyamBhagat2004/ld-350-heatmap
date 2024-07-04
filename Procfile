@@ -1,2 +1,2 @@
-web: python dynamic2.py
+worker: python dynamic3.py
 
