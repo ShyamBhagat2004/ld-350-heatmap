@@ -1,2 +1,2 @@
-web: python dynamic3.py
+web: python del.py
 
