@@ -1,11 +1,9 @@
 import asyncio
 import json
 import math
+import os
 import paho.mqtt.client as mqtt
 from aiohttp import web
-import aiohttp
-import aiohttp.web
-import os
 
 # MQTT settings
 MQTT_BROKER = "broker.mqtt.cool"
@@ -18,6 +16,9 @@ connected_clients = set()
 base_lat = 38.002729
 base_lon = 23.675644
 earth_radius = 6371.0
+
+# Store the main event loop
+main_loop = asyncio.get_event_loop()
 
 # WebSocket connection handler
 async def websocket_handler(request):
@@ -49,7 +50,7 @@ def on_message(client, userdata, msg):
         if data:
             asyncio.run_coroutine_threadsafe(
                 send_mqtt_message_to_clients(data),
-                asyncio.get_event_loop()
+                main_loop
             )
 
 def parse_lightning_message(message):
@@ -93,6 +94,6 @@ app = web.Application()
 app.router.add_get('/ws', websocket_handler)
 app.router.add_static('/', path='./templates', name='templates')
 
-# Run the server
+# Run the server in the main event loop
 if __name__ == "__main__":
     web.run_app(app, port=int(os.environ.get("PORT", 5002)))
