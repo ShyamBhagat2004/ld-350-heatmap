@@ -1,2 +1,2 @@
-web: python del.py
+web: python dynamic2_localworking.py
 
