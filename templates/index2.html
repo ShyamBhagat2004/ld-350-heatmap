@@ -10,6 +10,9 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+
     <style>
         #map {
             height: 600px;  /* Set a height for the map */
@@ -29,15 +32,15 @@
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Initialize WebSocket
-        var socket = new WebSocket('ws://localhost:6789');
+        // Initialize Socket.IO
+        var socket = io.connect('http://' + document.domain + ':' + location.port + '/test');
 
-        socket.onopen = function() {
+        socket.on('connect', function() {
             console.log('Connected to server');
-        };
+        });
 
-        socket.onmessage = function(event) {
-            var data = JSON.parse(event.data);
+        // Handle new strike events
+        socket.on('new_strike', function(data) {
             console.log('New strike data received:', data);  // Debug print
             var lat = data.lat;
             var lon = data.lon;
@@ -49,11 +52,10 @@
             }).addTo(map)
                 .bindPopup('Lightning Strike')
                 .openPopup();
-        };
+        });
 
-        socket.onclose = function() {
-            console.log('Disconnected from server');
-        };
+        // Trigger a test event to check if it works
+        fetch('/emit_test').then(response => response.text()).then(data => console.log(data));
     </script>
 </body>
 </html>

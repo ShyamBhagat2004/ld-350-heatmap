@@ -22,12 +22,15 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     message = msg.payload.decode()
+    print(f"Received MQTT message: {message}")  # Debug print
     if message.startswith("$WIMLI,"):
         data = parse_lightning_message(message)
         if data:
+            print(f"Parsed strike data: {data}")  # Debug print
             # Emit from within the Flask application context
             with app.app_context():
                 socketio.emit('new_strike', {'lat': data[0], 'lon': data[1]}, namespace='/test')
+                print("Emitted new_strike event")  # Debug print
 
 def parse_lightning_message(message):
     try:
@@ -57,13 +60,20 @@ def index():
     # Start the Flask-SocketIO map
     return render_template('index.html')
 
+@app.route('/emit_test')
+def emit_test():
+    test_data = {'lat': base_lat, 'lon': base_lon}
+    with app.app_context():
+        socketio.emit('new_strike', test_data, namespace='/test')
+    return "Test event emitted!"
+
 @socketio.on('connect', namespace='/test')
-def test_connect():
-    print('Client connected, SID:', request.sid)
+def test_connect(sid, environ):
+    print('Client connected, SID:', sid)
 
 @socketio.on('disconnect', namespace='/test')
-def test_disconnect():
-    print('Client disconnected, SID:', request.sid)
+def test_disconnect(sid):
+    print('Client disconnected, SID:', sid)
 
 if __name__ == '__main__':
     mqtt_client = mqtt.Client()
