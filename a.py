@@ -1,8 +1,15 @@
+import os
 import asyncio
 import websockets
 import json
 import paho.mqtt.client as mqtt
 import math
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.websockets import WebSocket
+import uvicorn
+
+app = FastAPI()
 
 # MQTT settings
 MQTT_BROKER = "broker.mqtt.cool"
@@ -17,11 +24,15 @@ base_lon = 23.675644
 earth_radius = 6371.0
 
 # WebSocket connection handler
-async def connection_handler(websocket, path):
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
     connected_clients.add(websocket)
     try:
-        async for message in websocket:
-            pass
+        while True:
+            await websocket.receive_text()
+    except:
+        pass
     finally:
         connected_clients.remove(websocket)
 
@@ -39,10 +50,7 @@ def on_message(client, userdata, msg):
     if message.startswith("$WIMLI,"):
         data = parse_lightning_message(message)
         if data:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(send_mqtt_message_to_clients(data))
-            loop.close()
+            asyncio.run(send_mqtt_message_to_clients(data))
 
 def parse_lightning_message(message):
     try:
@@ -69,7 +77,7 @@ def convert_to_coordinates(lat, lon, distance, bearing):
 async def send_mqtt_message_to_clients(data):
     strike_data = {'lat': data[0], 'lon': data[1]}
     if connected_clients:  # Only send if there are connected clients
-        await asyncio.wait([client.send(json.dumps(strike_data)) for client in connected_clients])
+        await asyncio.wait([client.send_text(json.dumps(strike_data)) for client in connected_clients])
         print(f"Sent: {strike_data}")  # Debug print
 
 # MQTT client setup
@@ -79,10 +87,8 @@ mqtt_client.on_message = on_message
 mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
 mqtt_client.loop_start()
 
-# Start the WebSocket server
-start_server = websockets.serve(connection_handler, "localhost", 6789)
+# Get the port from the environment variable
+PORT = int(os.environ.get("PORT", 8000))
 
-# Run the WebSocket server
-loop = asyncio.get_event_loop()
-loop.run_until_complete(start_server)
-loop.run_forever()
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
