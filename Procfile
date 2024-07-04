@@ -1,2 +1,2 @@
-web: python dynamic.py
+web: python dynamic2.py
 

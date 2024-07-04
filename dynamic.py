@@ -96,4 +96,4 @@ app.router.add_static('/', path='./templates', name='templates')
 
 # Run the server in the main event loop
 if __name__ == "__main__":
-    web.run_app(app, port=int(os.environ.get("PORT", 5000)))
+    web.run_app(app, port=int(os.environ.get("PORT", 5003)))
