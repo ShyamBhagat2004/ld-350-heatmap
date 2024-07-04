@@ -1,9 +1,8 @@
 import asyncio
+import websockets
 import json
-import math
-import os
 import paho.mqtt.client as mqtt
-from aiohttp import web
+import math
 
 # MQTT settings
 MQTT_BROKER = "broker.mqtt.cool"
@@ -18,18 +17,13 @@ base_lon = 23.675644
 earth_radius = 6371.0
 
 # WebSocket connection handler
-async def websocket_handler(request):
-    ws = web.WebSocketResponse()
-    await ws.prepare(request)
-
-    connected_clients.add(ws)
+async def connection_handler(websocket, path):
+    connected_clients.add(websocket)
     try:
-        async for msg in ws:
+        async for message in websocket:
             pass
     finally:
-        connected_clients.remove(ws)
-
-    return ws
+        connected_clients.remove(websocket)
 
 # MQTT callbacks
 def on_connect(client, userdata, flags, rc):
@@ -45,10 +39,10 @@ def on_message(client, userdata, msg):
     if message.startswith("$WIMLI,"):
         data = parse_lightning_message(message)
         if data:
-            asyncio.run_coroutine_threadsafe(
-                send_mqtt_message_to_clients(data),
-                main_loop
-            )
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(send_mqtt_message_to_clients(data))
+            loop.close()
 
 def parse_lightning_message(message):
     try:
@@ -75,12 +69,8 @@ def convert_to_coordinates(lat, lon, distance, bearing):
 async def send_mqtt_message_to_clients(data):
     strike_data = {'lat': data[0], 'lon': data[1]}
     if connected_clients:  # Only send if there are connected clients
-        for ws in connected_clients:
-            await ws.send_json(strike_data)
+        await asyncio.wait([client.send(json.dumps(strike_data)) for client in connected_clients])
         print(f"Sent: {strike_data}")  # Debug print
-
-# Store the main event loop
-main_loop = asyncio.get_event_loop()
 
 # MQTT client setup
 mqtt_client = mqtt.Client()
@@ -89,11 +79,10 @@ mqtt_client.on_message = on_message
 mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
 mqtt_client.loop_start()
 
-# Set up the web server
-app = web.Application()
-app.router.add_get('/ws', websocket_handler)
-app.router.add_static('/', path='./templates', name='templates')
+# Start the WebSocket server
+start_server = websockets.serve(connection_handler, "localhost", 6789)
 
-# Run the server in the main event loop
-if __name__ == "__main__":
-    web.run_app(app, port=int(os.environ.get("PORT", 5000)))
+# Run the WebSocket server
+loop = asyncio.get_event_loop()
+loop.run_until_complete(start_server)
+loop.run_forever()
