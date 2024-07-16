@@ -69,8 +69,10 @@ def convert_to_coordinates(lat, lon, distance, bearing):
 async def send_mqtt_message_to_clients(data):
     strike_data = {'lat': data[0], 'lon': data[1]}
     if connected_clients:  # Only send if there are connected clients
-        await asyncio.wait([client.send(json.dumps(strike_data)) for client in connected_clients])
+        tasks = [asyncio.create_task(client.send(json.dumps(strike_data))) for client in connected_clients]
+        await asyncio.wait(tasks)
         print(f"Sent: {strike_data}")  # Debug print
+
 
 # MQTT client setup
 mqtt_client = mqtt.Client()
