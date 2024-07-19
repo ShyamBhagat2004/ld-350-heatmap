@@ -35,16 +35,8 @@
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Initialize the heatmap layer with adjusted settings for solid dots
-        var heat = L.heatLayer([], {radius: 5, maxZoom: 12, maxIntensity: 1.5, blur: 1, gradient: {1: 'red'}}).addTo(map);
-
-        // Draw a pink circle with a radius of approximately 408773 meters (254 miles)
-        var circle = L.circle([37.9838, 23.7275], {
-            color: 'pink',
-            fillColor: '#f03',
-            fillOpacity: 0,
-            radius: 408773
-        }).addTo(map);
+        // Initialize the heatmap layer with increased intensity and radius
+        var heat = L.heatLayer([], {radius: 5, maxZoom: 12, maxIntensity: 1.5, blur: 0, gradient: {0.4: 'blue', 0.65: 'lime', 1: 'red'}}).addTo(map);
 
         // Initialize WebSocket
         var socket = new WebSocket('ws://localhost:6789');
