@@ -166,9 +166,9 @@ def perform_tdoa(coords, data):
 def latlon_to_xyz(lat, lon):
     lat_rad = math.radians(lat)
     lon_rad = math.radians(lon)
-    x = earth_radius * math.cos(lat_rad) * math.cos(lon_rad)
-    y = earth_radius * math.cos(lat_rad) * math.sin(lon_rad)
-    z = earth_radius * math.sin(lat_rad)
+    x = earth_radius * math.cos(lat) * math.cos(lon)
+    y = earth_radius * math.cos(lat) * math.sin(lon)
+    z = earth_radius * math.sin(lat)
     return x, y, z
 
 def xyz_to_latlon(x, y, z):
@@ -189,13 +189,11 @@ mqtt_client.on_message = on_message
 mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
 mqtt_client.loop_start()
 
-# Keep the script running
+# Run the MQTT client loop
 try:
     while True:
         pass
 except KeyboardInterrupt:
-    print("Interrupted by user")
-
-# Stop the MQTT loop when the script is stopped
-mqtt_client.loop_stop()
-mqtt_client.disconnect()
+    print("Exiting...")
+    mqtt_client.loop_stop()
+    mqtt_client.disconnect()
