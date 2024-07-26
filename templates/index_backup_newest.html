@@ -36,7 +36,8 @@
         }).addTo(map);
 
         // Initialize the heatmap layer with adjusted settings for solid dots
-        var heat = L.heatLayer([], {radius: 10, maxZoom: 12, maxIntensity: 1, blur: 0, gradient: {1: 'blue'}}).addTo(map);
+        var heat = L.heatLayer([], {radius: 10, maxZoom: 12, maxIntensity: 1, blur: 5, gradient: {1: 'blue'}}).addTo(map);
+        
 
         // Draw a pink circle with a radius of approximately 408773 meters (254 miles)
         var circle = L.circle([37.9838, 23.7275], {
