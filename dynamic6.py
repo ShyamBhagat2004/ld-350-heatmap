@@ -22,14 +22,11 @@ base_coords = {
 }
 earth_radius = 6371.0  # Radius of Earth in kilometers
 
-# Storage for messages from each RPI
-strike_data = defaultdict(lambda: {'timestamp': None, 'distance': None, 'bearing': None})
+# Storage for recent messages from each RPI
+recent_strikes = {1: [], 2: [], 3: []}
 
 # Time window in seconds to consider the strikes as the same event
 TIME_WINDOW = 0.5  # seconds
-
-# To track the previous timestamp
-previous_timestamp = None
 
 # WebSocket connection handler
 async def connection_handler(websocket, path):
@@ -50,8 +47,6 @@ def on_connect(client, userdata, flags, rc):
         print(f"Failed to connect, return code {rc}")
 
 def on_message(client, userdata, msg):
-    global previous_timestamp
-
     message = msg.payload.decode()
     topic_index = MQTT_TOPICS.index(msg.topic) + 1
     print(f"Received MQTT message from RPI {topic_index}: {message}")  # Debug print
@@ -66,19 +61,13 @@ def on_message(client, userdata, msg):
 
     nmea_data = '\n'.join(lines[1:])
 
-    # Log time difference with previous reading
-    if previous_timestamp:
-        time_difference = (timestamp - previous_timestamp).total_seconds() * 1000  # Convert to milliseconds
-        print(f"Time difference between readings: {time_difference:.2f} ms")
-    previous_timestamp = timestamp
-
     # Extract all $WIMLI sentences using a regular expression
     wimli_sentences = re.findall(r'\$WIMLI,[^*]*\*\w{2}', nmea_data)
     for sentence in wimli_sentences:
         data = parse_lightning_message(sentence)
         if data:
             data['timestamp'] = timestamp
-            strike_data[topic_index] = data
+            recent_strikes[topic_index].append(data)
             print(f"Stored data for RPI {topic_index}: {data}")  # Debug print
             check_and_process_strikes()
 
@@ -104,19 +93,37 @@ def parse_lightning_message(message):
         return None
 
 def check_and_process_strikes():
-    print(f"Checking strike data: {strike_data}")  # Debug print
-    timestamps = [data['timestamp'] for data in strike_data.values() if data['timestamp'] is not None]
-    if len(timestamps) == len(base_coords):
-        min_timestamp = min(timestamps)
-        max_timestamp = max(timestamps)
-        time_difference = (max_timestamp - min_timestamp).total_seconds()
-        
+    global recent_strikes
+    print(f"Checking strike data: {recent_strikes}")  # Debug print
+
+    # Find the closest set of timestamps from the three RPIs
+    closest_set = find_closest_set(recent_strikes)
+    if closest_set:
+        coords = [convert_to_coordinates(base_coords[i][0], base_coords[i][1], data['distance'], data['bearing'])
+                  for i, data in closest_set.items()]
+        x, y = perform_tdoa(coords, list(closest_set.values()))
+        asyncio.run(send_mqtt_message_to_clients((x, y)))
+
+        # Clear the processed readings
+        for i in closest_set.keys():
+            recent_strikes[i].remove(closest_set[i])
+
+def find_closest_set(strikes):
+    if all(strikes.values()):
+        # Generate all possible combinations of one reading from each RPI
+        possible_sets = []
+        for strike1 in strikes[1]:
+            for strike2 in strikes[2]:
+                for strike3 in strikes[3]:
+                    possible_sets.append((strike1, strike2, strike3))
+
+        # Find the set with the closest timestamps
+        closest_set = min(possible_sets, key=lambda x: max(s['timestamp'] for s in x) - min(s['timestamp'] for s in x))
+        time_difference = (max(s['timestamp'] for s in closest_set) - min(s['timestamp'] for s in closest_set)).total_seconds()
+
         if time_difference <= TIME_WINDOW:
-            coords = [convert_to_coordinates(base_coords[i][0], base_coords[i][1], data['distance'], data['bearing'])
-                      for i, data in strike_data.items()]
-            x, y = perform_tdoa(coords, list(strike_data.values()))
-            asyncio.run(send_mqtt_message_to_clients((x, y)))
-            strike_data.clear()  # Clear data after processing
+            return {1: closest_set[0], 2: closest_set[1], 3: closest_set[2]}
+    return None
 
 def convert_to_coordinates(lat, lon, distance, bearing):
     bearing_rad = math.radians(bearing)
