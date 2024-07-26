@@ -3,27 +3,53 @@ import paho.mqtt.client as mqtt
 import math
 import re
 from datetime import datetime
-from pymongo import MongoClient, errors
+import mysql.connector
+from mysql.connector import errorcode
 
 # MQTT settings
 MQTT_BROKER = "broker.mqtt.cool"
 MQTT_PORT = 1883
 MQTT_TOPICS = ["NMEA_Lightning_1", "NMEA_Lightning_2", "NMEA_Lightning_3"]
 
-# MongoDB settings
-MONGO_URI = "mongodb://mongo:dqYcjoKEmBwihxZeEFlHMwkNZBaGWWem@roundhouse.proxy.rlwy.net:33410"
+# MySQL settings
+MYSQL_URI = "mysql://root:uHDtofwFoEciTpEapiPtnCLrwwQuzXLc@monorail.proxy.rlwy.net:21188/railway"
+DB_CONFIG = {
+    'user': 'root',
+    'password': 'uHDtofwFoEciTpEapiPtnCLrwwQuzXLc',
+    'host': 'monorail.proxy.rlwy.net',
+    'port': 21188,
+    'database': 'railway'
+}
+
 try:
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-    db = client.lightning_data
-    collection = db.strikes
-    # Attempt to retrieve server information to verify connection
-    client.server_info()
-    print("Connected to MongoDB!")
-except errors.ServerSelectionTimeoutError as err:
-    print(f"Could not connect to MongoDB: {err}")
-    exit(1)
-except errors.PyMongoError as e:
-    print(f"MongoDB Error: {e}")
+    conn = mysql.connector.connect(**DB_CONFIG)
+    cursor = conn.cursor()
+    print("Connected to MySQL!")
+
+    # Create database if not exists
+    cursor.execute("CREATE DATABASE IF NOT EXISTS railway")
+    cursor.execute("USE railway")
+
+    # Create table if not exists
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS strikes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        timestamps JSON NOT NULL,
+        time_difference_ms FLOAT NOT NULL,
+        rpi_coords JSON NOT NULL,
+        combined_coords JSON NOT NULL,
+        wimli_outputs JSON NOT NULL,
+        full_message TEXT NOT NULL
+    );
+    """)
+    conn.commit()
+except mysql.connector.Error as err:
+    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+        print("Something is wrong with your user name or password")
+    elif err.errno == errorcode.ER_BAD_DB_ERROR:
+        print("Database does not exist")
+    else:
+        print(err)
     exit(1)
 
 # Define base coordinates and earth radius
@@ -74,6 +100,8 @@ def on_message(client, userdata, msg):
         data = parse_lightning_message(sentence)
         if data:
             data['timestamp'] = timestamp
+            data['wimli'] = sentence
+            data['full_message'] = message
             recent_strikes[topic_index].append(data)
             check_and_process_strikes()
 
@@ -107,21 +135,37 @@ def check_and_process_strikes():
         combined_lat, combined_lon = perform_tdoa(coords, list(closest_set.values()))
         
         strike_data = {
-            'timestamps': [ts.isoformat() for ts in timestamps],
+            'timestamps': json.dumps([ts.isoformat() for ts in timestamps]),
             'time_difference_ms': time_difference.total_seconds() * 1000,
-            'rpi_coords': [
+            'rpi_coords': json.dumps([
                 {'rpi': i, 'lat': coord[0], 'lon': coord[1]}
                 for i, coord in zip(range(1, 4), coords)
-            ],
-            'combined_coords': {'lat': combined_lat, 'lon': combined_lon}
+            ]),
+            'combined_coords': json.dumps({'lat': combined_lat, 'lon': combined_lon}),
+            'wimli_outputs': json.dumps([data['wimli'] for data in closest_set.values()]),
+            'full_message': list(closest_set.values())[0]['full_message']
         }
         
-        print(f"Inserting strike data into MongoDB: {strike_data}")
+        print(f"Inserting strike data into MySQL: {strike_data}")
         try:
-            result = collection.insert_one(strike_data)
-            print(f"Data successfully inserted into MongoDB with ID: {result.inserted_id}")
-        except errors.PyMongoError as e:
-            print(f"Error inserting data into MongoDB: {e}")
+            cursor.execute(
+                """
+                INSERT INTO strikes (timestamps, time_difference_ms, rpi_coords, combined_coords, wimli_outputs, full_message)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    strike_data['timestamps'],
+                    strike_data['time_difference_ms'],
+                    strike_data['rpi_coords'],
+                    strike_data['combined_coords'],
+                    strike_data['wimli_outputs'],
+                    strike_data['full_message']
+                )
+            )
+            conn.commit()
+            print("Data successfully inserted into MySQL.")
+        except mysql.connector.Error as err:
+            print(f"Error inserting data into MySQL: {err}")
 
         for i in closest_set.keys():
             recent_strikes[i].remove(closest_set[i])
@@ -202,3 +246,5 @@ except KeyboardInterrupt:
 finally:
     mqtt_client.loop_stop()
     mqtt_client.disconnect()
+    cursor.close()
+    conn.close()
