@@ -11,7 +11,7 @@ MQTT_PORT = 1883
 MQTT_TOPICS = ["NMEA_Lightning_1", "NMEA_Lightning_2", "NMEA_Lightning_3"]
 
 # MongoDB settings
-MONGO_URI = "mongodb://mongo:dqYcjoKEmBwihxZeEFlHMwkNZBaGWWem@roundhouse.proxy.rlwy.net:33410"
+MONGO_URI = "mongodb://mongo:FhZDyrybhQsAzIzFtjuePmKZzbzvaAeI@roundhouse.proxy.rlwy.net:26857"
 try:
     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     db = client.lightning_data
@@ -21,6 +21,9 @@ try:
     print("Connected to MongoDB!")
 except errors.ServerSelectionTimeoutError as err:
     print(f"Could not connect to MongoDB: {err}")
+    exit(1)
+except errors.PyMongoError as e:
+    print(f"MongoDB Error: {e}")
     exit(1)
 
 # Define base coordinates and earth radius
@@ -115,8 +118,8 @@ def check_and_process_strikes():
         
         print(f"Inserting strike data into MongoDB: {strike_data}")
         try:
-            collection.insert_one(strike_data)
-            print("Data successfully inserted into MongoDB.")
+            result = collection.insert_one(strike_data)
+            print(f"Data successfully inserted into MongoDB with ID: {result.inserted_id}")
         except errors.PyMongoError as e:
             print(f"Error inserting data into MongoDB: {e}")
 
@@ -166,9 +169,9 @@ def perform_tdoa(coords, data):
 def latlon_to_xyz(lat, lon):
     lat_rad = math.radians(lat)
     lon_rad = math.radians(lon)
-    x = earth_radius * math.cos(lat) * math.cos(lon)
-    y = earth_radius * math.cos(lat) * math.sin(lon)
-    z = earth_radius * math.sin(lat)
+    x = earth_radius * math.cos(lat_rad) * math.cos(lon_rad)
+    y = earth_radius * math.cos(lat_rad) * math.sin(lon_rad)
+    z = earth_radius * math.sin(lat_rad)
     return x, y, z
 
 def xyz_to_latlon(x, y, z):
@@ -177,6 +180,7 @@ def xyz_to_latlon(x, y, z):
     return lat, lon
 
 def multilateration(p1, p2, p3, tdoa_ab, tdoa_ac):
+    # Placeholder logic for multilateration, which needs to be implemented
     x = (p1[0] + p2[0] + p3[0]) / 3
     y = (p1[1] + p2[1] + p3[1]) / 3
     z = (p1[2] + p2[2] + p3[2]) / 3
@@ -189,11 +193,12 @@ mqtt_client.on_message = on_message
 mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
 mqtt_client.loop_start()
 
-# Run the MQTT client loop
+# Keep the script running
 try:
     while True:
         pass
 except KeyboardInterrupt:
-    print("Exiting...")
+    print("Script interrupted by user")
+finally:
     mqtt_client.loop_stop()
     mqtt_client.disconnect()
