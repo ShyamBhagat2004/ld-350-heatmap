@@ -26,7 +26,7 @@ earth_radius = 6371.0  # Radius of Earth in kilometers
 strike_data = defaultdict(lambda: {'timestamp': None, 'distance': None, 'bearing': None})
 
 # Time window in seconds to consider the strikes as the same event
-TIME_WINDOW = 2  # seconds
+TIME_WINDOW = 0.5  # seconds
 
 # WebSocket connection handler
 async def connection_handler(websocket, path):

@@ -38,7 +38,6 @@
         // Initialize the heatmap layer with adjusted settings for solid dots
         var heat = L.heatLayer([], {radius: 10, maxZoom: 12, maxIntensity: 1, blur: 5, gradient: {1: 'blue'}}).addTo(map);
         
-
         // Draw a pink circle with a radius of approximately 408773 meters (254 miles)
         var circle = L.circle([37.9838, 23.7275], {
             color: 'pink',
@@ -55,11 +54,24 @@
         };
 
         socket.onmessage = function(event) {
-            var data = JSON.parse(event.data);
-            console.log('New strike data received:', data);  // Debug print
-            var lat = data.lat;
-            var lon = data.lon;
-            heat.addLatLng([lat, lon]);  // Add data to the heatmap
+            try {
+                var data = JSON.parse(event.data);
+                console.log('New strike data received:', data);  // Debug print
+
+                if (data.lat !== undefined && data.lon !== undefined) {
+                    var lat = data.lat;
+                    var lon = data.lon;
+                    heat.addLatLng([lat, lon]);  // Add data to the heatmap
+                } else {
+                    console.error('Invalid data format:', data);
+                }
+            } catch (e) {
+                console.error('Error parsing WebSocket message:', e);
+            }
+        };
+
+        socket.onerror = function(error) {
+            console.error('WebSocket error:', error);
         };
 
         socket.onclose = function() {
