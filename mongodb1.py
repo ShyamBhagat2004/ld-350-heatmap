@@ -3,7 +3,7 @@ import paho.mqtt.client as mqtt
 import math
 import re
 from datetime import datetime
-from pymongo import MongoClient
+from pymongo import MongoClient, errors
 
 # MQTT settings
 MQTT_BROKER = "broker.mqtt.cool"
@@ -12,9 +12,16 @@ MQTT_TOPICS = ["NMEA_Lightning_1", "NMEA_Lightning_2", "NMEA_Lightning_3"]
 
 # MongoDB settings
 MONGO_URI = "mongodb://mongo:FhZDyrybhQsAzIzFtjuePmKZzbzvaAeI@roundhouse.proxy.rlwy.net:26857"
-client = MongoClient(MONGO_URI)
-db = client.lightning_data
-collection = db.strikes
+try:
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    db = client.lightning_data
+    collection = db.strikes
+    # Attempt to retrieve server information to verify connection
+    client.server_info()
+    print("Connected to MongoDB!")
+except errors.ServerSelectionTimeoutError as err:
+    print(f"Could not connect to MongoDB: {err}")
+    exit(1)
 
 # Define base coordinates and earth radius
 base_coords = {
@@ -71,6 +78,7 @@ def parse_lightning_message(message):
     try:
         parts = message.split(',')
         if len(parts) < 4:
+            print(f"Skipping message due to insufficient parts: {message}")
             return None
         
         distance_miles = float(parts[1])
@@ -78,6 +86,7 @@ def parse_lightning_message(message):
         
         return {'distance': distance_miles * 1.60934, 'bearing': bearing_degrees}
     except Exception as e:
+        print(f"Error parsing message: {e}")
         return None
 
 def check_and_process_strikes():
@@ -105,7 +114,11 @@ def check_and_process_strikes():
         }
         
         print(f"Inserting strike data into MongoDB: {strike_data}")
-        collection.insert_one(strike_data)
+        try:
+            collection.insert_one(strike_data)
+            print("Data successfully inserted into MongoDB.")
+        except errors.PyMongoError as e:
+            print(f"Error inserting data into MongoDB: {e}")
 
         for i in closest_set.keys():
             recent_strikes[i].remove(closest_set[i])
