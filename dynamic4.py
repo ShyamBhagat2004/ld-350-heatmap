@@ -174,6 +174,6 @@ mqtt_client.loop_start()
 start_server = websockets.serve(connection_handler, "localhost", 6789)
 
 # Run the WebSocket server
-loop = asyncio.get_event_loop()
+loop = asyncio.get_event_loop() 
 loop.run_until_complete(start_server)
 loop.run_forever()
