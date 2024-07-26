@@ -11,7 +11,7 @@ MQTT_PORT = 1883
 MQTT_TOPICS = ["NMEA_Lightning_1", "NMEA_Lightning_2", "NMEA_Lightning_3"]
 
 # MongoDB settings
-MONGO_URI = "mongodb://mongo:FhZDyrybhQsAzIzFtjuePmKZzbzvaAeI@roundhouse.proxy.rlwy.net:26857"
+MONGO_URI = "mongodb://mongo:dqYcjoKEmBwihxZeEFlHMwkNZBaGWWem@roundhouse.proxy.rlwy.net:33410"
 try:
     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     db = client.lightning_data
