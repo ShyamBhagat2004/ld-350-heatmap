@@ -8,7 +8,7 @@ import re  # Import for regular expressions
 # MQTT settings
 MQTT_BROKER = "broker.mqtt.cool"
 MQTT_PORT = 1883
-MQTT_TOPIC = "NMEA_Lightning"
+MQTT_TOPIC = "NMEA_Lightning_2"
 
 connected_clients = set()
 
